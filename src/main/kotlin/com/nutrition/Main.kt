@@ -50,9 +50,8 @@ fun main(args: Array<String>) {
         NutritionApp()
             .subcommands(
                 ShowRecipeCommand(db),
-                CreateRecipeCommand(db, nutritionix)
-            )
-            .main(args)
+                CreateRecipeCommand(db, nutritionix),
+            ).main(args)
     } finally {
         db.close()
     }

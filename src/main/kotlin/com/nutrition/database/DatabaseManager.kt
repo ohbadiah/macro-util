@@ -4,7 +4,9 @@ import com.nutrition.models.*
 import java.sql.Connection
 import java.sql.DriverManager
 
-class DatabaseManager(databasePath: String = "nutrition.db") {
+class DatabaseManager(
+    databasePath: String = "nutrition.db",
+) {
     private val connection: Connection = DriverManager.getConnection("jdbc:sqlite:$databasePath")
 
     init {
@@ -60,9 +62,11 @@ class DatabaseManager(databasePath: String = "nutrition.db") {
                     calories = rs.getDouble("calories"),
                     protein = rs.getDouble("protein"),
                     fat = rs.getDouble("fat"),
-                    carbs = rs.getDouble("carbs")
+                    carbs = rs.getDouble("carbs"),
                 )
-            } else null
+            } else {
+                null
+            }
         }
     }
 
@@ -105,7 +109,11 @@ class DatabaseManager(databasePath: String = "nutrition.db") {
         }
     }
 
-    private fun saveRecipeIngredient(recipeId: Int, ingredientId: Int, servings: Double) {
+    private fun saveRecipeIngredient(
+        recipeId: Int,
+        ingredientId: Int,
+        servings: Double,
+    ) {
         val sql = "INSERT INTO recipe_ingredients (recipe_id, ingredient_id, servings) VALUES (?, ?, ?)"
         connection.prepareStatement(sql).use { statement ->
             statement.setInt(1, recipeId)
@@ -125,7 +133,9 @@ class DatabaseManager(databasePath: String = "nutrition.db") {
                 val recipeName = rs.getString("name")
                 val ingredients = getRecipeIngredients(recipeId)
                 Recipe(id = recipeId, name = recipeName, ingredients = ingredients)
-            } else null
+            } else {
+                null
+            }
         }
     }
 
@@ -141,16 +151,17 @@ class DatabaseManager(databasePath: String = "nutrition.db") {
             val rs = statement.executeQuery()
             val ingredients = mutableListOf<RecipeIngredient>()
             while (rs.next()) {
-                val ingredient = Ingredient(
-                    id = rs.getInt("id"),
-                    name = rs.getString("name"),
-                    servingSize = rs.getDouble("serving_size"),
-                    servingUnit = rs.getString("serving_unit"),
-                    calories = rs.getDouble("calories"),
-                    protein = rs.getDouble("protein"),
-                    fat = rs.getDouble("fat"),
-                    carbs = rs.getDouble("carbs")
-                )
+                val ingredient =
+                    Ingredient(
+                        id = rs.getInt("id"),
+                        name = rs.getString("name"),
+                        servingSize = rs.getDouble("serving_size"),
+                        servingUnit = rs.getString("serving_unit"),
+                        calories = rs.getDouble("calories"),
+                        protein = rs.getDouble("protein"),
+                        fat = rs.getDouble("fat"),
+                        carbs = rs.getDouble("carbs"),
+                    )
                 ingredients.add(RecipeIngredient(ingredient, rs.getDouble("servings")))
             }
             return ingredients

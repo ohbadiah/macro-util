@@ -8,22 +8,22 @@ data class Ingredient(
     val calories: Double,
     val protein: Double,
     val fat: Double,
-    val carbs: Double
+    val carbs: Double,
 )
 
 data class Recipe(
     val id: Int = 0,
     val name: String,
-    val ingredients: List<RecipeIngredient> = emptyList()
+    val ingredients: List<RecipeIngredient> = emptyList(),
 )
 
 data class RecipeIngredient(
     val ingredient: Ingredient,
-    val servings: Double
+    val servings: Double,
 )
 
 data class NutritionixResponse(
-    val foods: List<NutritionixFood>
+    val foods: List<NutritionixFood>,
 )
 
 data class NutritionixFood(
@@ -33,7 +33,7 @@ data class NutritionixFood(
     val nf_calories: Double,
     val nf_protein: Double,
     val nf_total_fat: Double,
-    val nf_total_carbohydrate: Double
+    val nf_total_carbohydrate: Double,
 )
 
 data class RecipeNutrition(
@@ -43,5 +43,5 @@ data class RecipeNutrition(
     val totalCarbs: Double,
     val proteinPercentage: Double,
     val fatPercentage: Double,
-    val carbsPercentage: Double
+    val carbsPercentage: Double,
 )

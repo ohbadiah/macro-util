@@ -39,7 +39,7 @@ object NutritionCalculator {
             totalCarbs = totalCarbs,
             proteinPercentage = proteinPercentage,
             fatPercentage = fatPercentage,
-            carbsPercentage = carbsPercentage
+            carbsPercentage = carbsPercentage,
         )
     }
 }
