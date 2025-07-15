@@ -73,6 +73,13 @@ class DatabaseManager(
     }
 
     fun saveIngredient(ingredient: Ingredient): Ingredient {
+        // Check if ingredient already exists
+        val existing = getIngredient(ingredient.name)
+        if (existing != null) {
+            // Return existing ingredient instead of trying to insert duplicate
+            return existing
+        }
+        
         val sql = """
             INSERT INTO ingredients (name, serving_size, serving_unit, serving_weight_grams, calories, protein, fat, carbs)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)

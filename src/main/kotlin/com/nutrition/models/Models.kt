@@ -39,6 +39,33 @@ data class NutritionixFood(
     val nf_total_carbohydrate: Double,
 )
 
+data class NutritionixInstantResponse(
+    val common: List<NutritionixCommonFood>,
+    val branded: List<NutritionixBrandedFood>,
+)
+
+data class NutritionixCommonFood(
+    val food_name: String,
+    val serving_unit: String?,
+    val serving_qty: Double?,
+    val nf_calories: Double,
+    val photo: NutritionixPhoto?,
+)
+
+data class NutritionixBrandedFood(
+    val food_name: String,
+    val serving_unit: String?,
+    val serving_qty: Double?,
+    val nf_calories: Double,
+    val brand_name: String?,
+    val nix_item_id: String,
+    val photo: NutritionixPhoto?,
+)
+
+data class NutritionixPhoto(
+    val thumb: String?,
+)
+
 data class RecipeNutrition(
     val totalCalories: Double,
     val totalProtein: Double,

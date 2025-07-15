@@ -105,15 +105,62 @@ class CreateRecipeCommand(
 
             if (ingredient == null) {
                 echo("Ingredient not found in database. Searching Nutritionix...")
-                ingredient = nutritionix.searchFood(ingredientName)
+                val searchResults = nutritionix.searchFoodOptions(ingredientName)
 
-                if (ingredient == null) {
-                    echo("Ingredient not found in Nutritionix. Please try a different name.")
+                if (searchResults.isEmpty()) {
+                    echo("No results found in Nutritionix. Please try a different name.")
                     continue
                 }
 
+                ingredient = if (searchResults.size == 1) {
+                    // Only one result, get full nutrition info if needed
+                    val result = searchResults.first()
+                    if (result.protein == 0.0 && result.fat == 0.0 && result.carbs == 0.0) {
+                        // This is from instant search, get full nutrition
+                        val detailedNutrition = nutritionix.searchFood(result.name)
+                        if (detailedNutrition != null) {
+                            // Preserve the branded name from selection, use detailed nutrition data
+                            detailedNutrition.copy(name = result.name)
+                        } else {
+                            result
+                        }
+                    } else {
+                        result
+                    }
+                } else {
+                    // Multiple results, let user choose
+                    echo("\nFound multiple options:")
+                    searchResults.forEachIndexed { index, result ->
+                        val weightInfo = if (result.servingWeightGrams != null) " (~${result.servingWeightGrams.toInt()}g)" else ""
+                        val calorieInfo = if (result.calories > 0) " ${result.calories.toInt()} cal" else ""
+                        echo("  ${index + 1}. ${result.name} (${result.servingSize} ${result.servingUnit}$weightInfo)$calorieInfo")
+                    }
+
+                    val choice = prompt("Select option (1-${searchResults.size})")?.toIntOrNull()
+                    if (choice == null || choice < 1 || choice > searchResults.size) {
+                        echo("Invalid selection.")
+                        continue
+                    }
+
+                    val selectedResult = searchResults[choice - 1]
+                    echo("Getting detailed nutrition info for: ${selectedResult.name}")
+                    
+                    // Get full nutrition info
+                    if (selectedResult.protein == 0.0 && selectedResult.fat == 0.0 && selectedResult.carbs == 0.0) {
+                        val detailedNutrition = nutritionix.searchFood(selectedResult.name)
+                        if (detailedNutrition != null) {
+                            // Preserve the branded name from selection, use detailed nutrition data
+                            detailedNutrition.copy(name = selectedResult.name)
+                        } else {
+                            selectedResult
+                        }
+                    } else {
+                        selectedResult
+                    }
+                }
+
                 val weightInfo = if (ingredient.servingWeightGrams != null) " (~${ingredient.servingWeightGrams.toInt()}g)" else ""
-                echo("Found: ${ingredient.name} (${ingredient.servingSize} ${ingredient.servingUnit}$weightInfo)")
+                echo("Selected: ${ingredient.name} (${ingredient.servingSize} ${ingredient.servingUnit}$weightInfo)")
                 echo(
                     "  Calories: ${ingredient.calories}, Protein: ${ingredient.protein}g, Fat: ${ingredient.fat}g, Carbs: ${ingredient.carbs}g",
                 )
