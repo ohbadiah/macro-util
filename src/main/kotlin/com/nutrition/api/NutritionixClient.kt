@@ -44,6 +44,7 @@ class NutritionixClient(
                     name = food.food_name,
                     servingSize = food.serving_qty,
                     servingUnit = food.serving_unit,
+                    servingWeightGrams = food.serving_weight_grams,
                     calories = food.nf_calories,
                     protein = food.nf_protein,
                     fat = food.nf_total_fat,

@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS ingredients (
     name TEXT UNIQUE NOT NULL,
     serving_size REAL NOT NULL,
     serving_unit TEXT NOT NULL,
+    serving_weight_grams REAL,
     calories REAL NOT NULL,
     protein REAL NOT NULL,
     fat REAL NOT NULL,

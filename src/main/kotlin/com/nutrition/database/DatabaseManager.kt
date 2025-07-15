@@ -20,6 +20,7 @@ class DatabaseManager(
                 name TEXT UNIQUE NOT NULL,
                 serving_size REAL NOT NULL,
                 serving_unit TEXT NOT NULL,
+                serving_weight_grams REAL,
                 calories REAL NOT NULL,
                 protein REAL NOT NULL,
                 fat REAL NOT NULL,
@@ -59,6 +60,7 @@ class DatabaseManager(
                     name = rs.getString("name"),
                     servingSize = rs.getDouble("serving_size"),
                     servingUnit = rs.getString("serving_unit"),
+                    servingWeightGrams = rs.getObject("serving_weight_grams") as Double?,
                     calories = rs.getDouble("calories"),
                     protein = rs.getDouble("protein"),
                     fat = rs.getDouble("fat"),
@@ -72,17 +74,22 @@ class DatabaseManager(
 
     fun saveIngredient(ingredient: Ingredient): Ingredient {
         val sql = """
-            INSERT INTO ingredients (name, serving_size, serving_unit, calories, protein, fat, carbs)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO ingredients (name, serving_size, serving_unit, serving_weight_grams, calories, protein, fat, carbs)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
         connection.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS).use { statement ->
             statement.setString(1, ingredient.name)
             statement.setDouble(2, ingredient.servingSize)
             statement.setString(3, ingredient.servingUnit)
-            statement.setDouble(4, ingredient.calories)
-            statement.setDouble(5, ingredient.protein)
-            statement.setDouble(6, ingredient.fat)
-            statement.setDouble(7, ingredient.carbs)
+            if (ingredient.servingWeightGrams != null) {
+                statement.setDouble(4, ingredient.servingWeightGrams)
+            } else {
+                statement.setNull(4, java.sql.Types.REAL)
+            }
+            statement.setDouble(5, ingredient.calories)
+            statement.setDouble(6, ingredient.protein)
+            statement.setDouble(7, ingredient.fat)
+            statement.setDouble(8, ingredient.carbs)
             statement.executeUpdate()
 
             val generatedKeys = statement.generatedKeys
@@ -157,6 +164,7 @@ class DatabaseManager(
                         name = rs.getString("name"),
                         servingSize = rs.getDouble("serving_size"),
                         servingUnit = rs.getString("serving_unit"),
+                        servingWeightGrams = rs.getObject("serving_weight_grams") as Double?,
                         calories = rs.getDouble("calories"),
                         protein = rs.getDouble("protein"),
                         fat = rs.getDouble("fat"),
