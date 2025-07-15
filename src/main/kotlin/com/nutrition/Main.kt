@@ -23,8 +23,8 @@ fun loadConfig(): Properties {
     } catch (e: Exception) {
         println("Warning: Could not load config.properties. Using default values.")
         // Set defaults or throw exception
-        properties.setProperty("nutritionix.app.id", "85332bf6")
-        properties.setProperty("nutritionix.app.key", "8edad818cbbb072dc99fb5f34b115f42")
+        properties.setProperty("nutritionix.app.id", "default-id")
+        properties.setProperty("nutritionix.app.key", "default-key")
         properties.setProperty("database.path", "nutrition.db")
     }
     return properties
@@ -32,20 +32,20 @@ fun loadConfig(): Properties {
 
 fun main(args: Array<String>) {
     val config = loadConfig()
-    
+
     val databasePath = config.getProperty("database.path", "nutrition.db")
     val db = DatabaseManager(databasePath)
-    
+
     val appId = config.getProperty("nutritionix.app.id")
     val appKey = config.getProperty("nutritionix.app.key")
-    
+
     if (appId == null || appKey == null) {
         println("Error: Nutritionix API credentials not found in config.properties")
         return
     }
-    
+
     val nutritionix = NutritionixClient(appId, appKey)
-    
+
     try {
         NutritionApp()
             .subcommands(
