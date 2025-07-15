@@ -1,1 +1,6 @@
 nutrition.db
+.gradle/
+build/
+gradle/
+gradlew
+gradlew.bat
