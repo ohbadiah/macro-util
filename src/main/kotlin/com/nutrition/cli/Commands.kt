@@ -36,13 +36,15 @@ class ShowRecipeCommand(
             val fat = ingredient.fat * servings
             val carbs = ingredient.carbs * servings
 
+            val weightInfo = if (ingredient.servingWeightGrams != null) " (~${(ingredient.servingWeightGrams * servings).toInt()}g)" else ""
             echo(
                 String.format(
-                    "  - %s: %.1f %s (%.1f servings) = %.1f cal, %.1fg protein, %.1fg fat, %.1fg carbs",
+                    "  - %s: %.1f %s (%.1f servings)%s = %.1f cal, %.1fg protein, %.1fg fat, %.1fg carbs",
                     ingredient.name,
                     ingredient.servingSize * servings,
                     ingredient.servingUnit,
                     servings,
+                    weightInfo,
                     calories,
                     protein,
                     fat,
@@ -108,7 +110,8 @@ class CreateRecipeCommand(
                     continue
                 }
 
-                echo("Found: ${ingredient.name} (${ingredient.servingSize} ${ingredient.servingUnit})")
+                val weightInfo = if (ingredient.servingWeightGrams != null) " (~${ingredient.servingWeightGrams.toInt()}g)" else ""
+                echo("Found: ${ingredient.name} (${ingredient.servingSize} ${ingredient.servingUnit}$weightInfo)")
                 echo(
                     "  Calories: ${ingredient.calories}, Protein: ${ingredient.protein}g, Fat: ${ingredient.fat}g, Carbs: ${ingredient.carbs}g",
                 )
@@ -119,7 +122,8 @@ class CreateRecipeCommand(
                     echo("Saved to database.")
                 }
             } else {
-                echo("Found in database: ${ingredient.name} (${ingredient.servingSize} ${ingredient.servingUnit})")
+                val weightInfo = if (ingredient.servingWeightGrams != null) " (~${ingredient.servingWeightGrams.toInt()}g)" else ""
+                echo("Found in database: ${ingredient.name} (${ingredient.servingSize} ${ingredient.servingUnit}$weightInfo)")
             }
 
             val servingsStr = prompt("How many servings of ${ingredient.name}?") ?: continue

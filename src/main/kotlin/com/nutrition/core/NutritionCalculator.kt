@@ -1,6 +1,7 @@
 package com.nutrition.core
 
 import com.nutrition.models.Recipe
+import com.nutrition.models.RecipeIngredient
 import com.nutrition.models.RecipeNutrition
 
 object NutritionCalculator {
@@ -16,12 +17,12 @@ object NutritionCalculator {
 
         recipe.ingredients.forEach { recipeIngredient ->
             val ingredient = recipeIngredient.ingredient
-            val servings = recipeIngredient.servings
+            val multiplier = calculateMultiplier(recipeIngredient)
 
-            totalCalories += ingredient.calories * servings
-            totalProtein += ingredient.protein * servings
-            totalFat += ingredient.fat * servings
-            totalCarbs += ingredient.carbs * servings
+            totalCalories += ingredient.calories * multiplier
+            totalProtein += ingredient.protein * multiplier
+            totalFat += ingredient.fat * multiplier
+            totalCarbs += ingredient.carbs * multiplier
         }
 
         val proteinCalories = totalProtein * CALORIES_PER_GRAM_PROTEIN
@@ -41,5 +42,16 @@ object NutritionCalculator {
             fatPercentage = fatPercentage,
             carbsPercentage = carbsPercentage,
         )
+    }
+
+    private fun calculateMultiplier(recipeIngredient: RecipeIngredient): Double {
+        val ingredient = recipeIngredient.ingredient
+        
+        return when {
+            recipeIngredient.weightGrams != null && ingredient.servingWeightGrams != null -> {
+                recipeIngredient.weightGrams / ingredient.servingWeightGrams
+            }
+            else -> recipeIngredient.servings
+        }
     }
 }

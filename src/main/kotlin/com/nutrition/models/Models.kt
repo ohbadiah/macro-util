@@ -21,6 +21,7 @@ data class Recipe(
 data class RecipeIngredient(
     val ingredient: Ingredient,
     val servings: Double,
+    val weightGrams: Double? = null,
 )
 
 data class NutritionixResponse(
