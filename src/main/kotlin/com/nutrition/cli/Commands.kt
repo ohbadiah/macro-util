@@ -9,22 +9,8 @@ import com.nutrition.database.DatabaseManager
 import com.nutrition.models.Recipe
 import com.nutrition.models.RecipeIngredient
 
-class ShowRecipeCommand(
-    private val db: DatabaseManager,
-) : CliktCommand(name = "show", help = "Display information for a recipe") {
-    private val recipeName by argument(help = "Name of the recipe")
-
-    override fun run() {
-        val recipe = db.getRecipe(recipeName)
-        if (recipe == null) {
-            echo("Recipe '$recipeName' not found.")
-            return
-        }
-
-        displayRecipe(recipe)
-    }
-
-    fun displayRecipe(recipe: Recipe) {
+object RecipeDisplayUtil {
+    fun displayRecipe(recipe: Recipe, echo: (String) -> Unit) {
         echo("\n=== Recipe: ${recipe.name} ===")
         echo("\nIngredients:")
 
@@ -78,6 +64,22 @@ class ShowRecipeCommand(
                 nutrition.carbsPercentage,
             ),
         )
+    }
+}
+
+class ShowRecipeCommand(
+    private val db: DatabaseManager,
+) : CliktCommand(name = "show", help = "Display information for a recipe") {
+    private val recipeName by argument(help = "Name of the recipe")
+
+    override fun run() {
+        val recipe = db.getRecipe(recipeName)
+        if (recipe == null) {
+            echo("Recipe '$recipeName' not found.")
+            return
+        }
+
+        RecipeDisplayUtil.displayRecipe(recipe, this::echo)
     }
 }
 
@@ -145,6 +147,6 @@ class CreateRecipeCommand(
         val recipe = Recipe(name = recipeName, ingredients = ingredients)
         val savedRecipe = db.saveRecipe(recipe)
 
-        ShowRecipeCommand(db).displayRecipe(savedRecipe)
+        RecipeDisplayUtil.displayRecipe(savedRecipe, this::echo)
     }
 }
