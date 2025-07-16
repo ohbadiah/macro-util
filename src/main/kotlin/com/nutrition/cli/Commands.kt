@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.parameters.options.prompt
 import com.nutrition.api.NutritionixClient
 import com.nutrition.core.NutritionCalculator
 import com.nutrition.database.DatabaseManager
+import com.nutrition.models.Ingredient
 import com.nutrition.models.Recipe
 import com.nutrition.models.RecipeIngredient
 
@@ -101,18 +102,16 @@ class CreateRecipeCommand(
             val ingredientName = prompt("\nIngredient name (or 'done' to finish)") ?: break
             if (ingredientName.lowercase() == "done") break
 
-            var ingredient = db.getIngredient(ingredientName)
-
-            if (ingredient == null) {
+            val ingredient = db.getIngredient(ingredientName) ?: run {
                 echo("Ingredient not found in database. Searching Nutritionix...")
                 val searchResults = nutritionix.searchFoodOptions(ingredientName)
 
                 if (searchResults.isEmpty()) {
                     echo("No results found in Nutritionix. Please try a different name.")
-                    continue
+                    return@run null
                 }
 
-                ingredient = if (searchResults.size == 1) {
+                if (searchResults.size == 1) {
                     // Only one result, get full nutrition info if needed
                     val result = searchResults.first()
                     if (result.protein == 0.0 && result.fat == 0.0 && result.carbs == 0.0) {
@@ -129,36 +128,55 @@ class CreateRecipeCommand(
                     }
                 } else {
                     // Multiple results, let user choose
-                    echo("\nFound multiple options:")
-                    searchResults.forEachIndexed { index, result ->
-                        val weightInfo = if (result.servingWeightGrams != null) " (~${result.servingWeightGrams.toInt()}g)" else ""
-                        val calorieInfo = if (result.calories > 0) " ${result.calories.toInt()} cal" else ""
-                        echo("  ${index + 1}. ${result.name} (${result.servingSize} ${result.servingUnit}$weightInfo)$calorieInfo")
-                    }
+                    var selectedIngredient: Ingredient? = null
+                    while (selectedIngredient == null) {
+                        echo("\nFound multiple options:")
+                        searchResults.forEachIndexed { index, result ->
+                            val weightInfo = if (result.servingWeightGrams != null) " (~${result.servingWeightGrams.toInt()}g)" else ""
+                            val calorieInfo = if (result.calories > 0) " ${result.calories.toInt()} cal" else ""
+                            echo("  ${index + 1}. ${result.name} (${result.servingSize} ${result.servingUnit}$weightInfo)$calorieInfo")
+                        }
+                        echo("  ${searchResults.size + 1}. None of these - try different search")
 
-                    val choice = prompt("Select option (1-${searchResults.size})")?.toIntOrNull()
-                    if (choice == null || choice < 1 || choice > searchResults.size) {
-                        echo("Invalid selection.")
-                        continue
-                    }
+                        val choice = prompt("Select option (1-${searchResults.size + 1})")?.toIntOrNull()
+                        if (choice == null || choice < 1 || choice > searchResults.size + 1) {
+                            echo("Invalid selection.")
+                            continue
+                        }
 
-                    val selectedResult = searchResults[choice - 1]
-                    echo("Getting detailed nutrition info for: ${selectedResult.name}")
-                    
-                    // Get full nutrition info
-                    if (selectedResult.protein == 0.0 && selectedResult.fat == 0.0 && selectedResult.carbs == 0.0) {
-                        val detailedNutrition = nutritionix.searchFood(selectedResult.name)
-                        if (detailedNutrition != null) {
-                            // Preserve the branded name from selection, use detailed nutrition data
-                            detailedNutrition.copy(name = selectedResult.name)
+                        if (choice == searchResults.size + 1) {
+                            // User wants to try a different search
+                            echo("Try entering a different ingredient name.")
+                            return@run null
+                        }
+
+                        val selectedResult = searchResults[choice - 1]
+                        echo("Getting detailed nutrition info for: ${selectedResult.name}")
+                        
+                        // Get full nutrition info
+                        selectedIngredient = if (selectedResult.protein == 0.0 && selectedResult.fat == 0.0 && selectedResult.carbs == 0.0) {
+                            val detailedNutrition = nutritionix.searchFood(selectedResult.name)
+                            if (detailedNutrition != null) {
+                                // Preserve the branded name from selection, use detailed nutrition data
+                                detailedNutrition.copy(name = selectedResult.name)
+                            } else {
+                                selectedResult
+                            }
                         } else {
                             selectedResult
                         }
-                    } else {
-                        selectedResult
                     }
+                    selectedIngredient
                 }
+            }
 
+            if (ingredient == null) {
+                continue // User chose "none of these" or search failed, restart ingredient prompt
+            }
+
+            // At this point, ingredient is guaranteed to be non-null
+            val finalIngredient = if (ingredient.id == 0) {
+                // This ingredient came from search, show details and ask to save
                 val weightInfo = if (ingredient.servingWeightGrams != null) " (~${ingredient.servingWeightGrams.toInt()}g)" else ""
                 echo("Selected: ${ingredient.name} (${ingredient.servingSize} ${ingredient.servingUnit}$weightInfo)")
                 echo(
@@ -167,15 +185,20 @@ class CreateRecipeCommand(
 
                 val save = prompt("Save this ingredient to database? (y/n)", default = "y")
                 if (save?.lowercase() == "y") {
-                    ingredient = db.saveIngredient(ingredient)
+                    val savedIngredient = db.saveIngredient(ingredient)
                     echo("Saved to database.")
+                    savedIngredient
+                } else {
+                    ingredient
                 }
             } else {
+                // This ingredient was found in database
                 val weightInfo = if (ingredient.servingWeightGrams != null) " (~${ingredient.servingWeightGrams.toInt()}g)" else ""
                 echo("Found in database: ${ingredient.name} (${ingredient.servingSize} ${ingredient.servingUnit}$weightInfo)")
+                ingredient
             }
 
-            val servingsStr = prompt("How many servings of ${ingredient.name}?") ?: continue
+            val servingsStr = prompt("How many servings of ${finalIngredient.name}?") ?: continue
             val servings = servingsStr.toDoubleOrNull()
 
             if (servings == null || servings <= 0) {
@@ -183,7 +206,7 @@ class CreateRecipeCommand(
                 continue
             }
 
-            ingredients.add(RecipeIngredient(ingredient, servings))
+            ingredients.add(RecipeIngredient(finalIngredient, servings))
         }
 
         if (ingredients.isEmpty()) {
