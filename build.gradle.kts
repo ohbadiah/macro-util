@@ -22,4 +22,5 @@ dependencies {
 
 application {
     mainClass.set("com.nutrition.MainKt")
+    applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 }
