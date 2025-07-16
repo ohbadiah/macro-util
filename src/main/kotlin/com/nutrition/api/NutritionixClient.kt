@@ -39,8 +39,22 @@ class NutritionixClient(
             
             val results = mutableListOf<Ingredient>()
             
-            // Add branded foods first (more specific)
-            instantResponse.branded.take(5).forEach { branded ->
+            // Add common foods first (USDA/generic data preferred)
+            instantResponse.common.take(10).forEach { common ->
+                results.add(Ingredient(
+                    name = common.food_name,
+                    servingSize = common.serving_qty ?: 1.0,
+                    servingUnit = common.serving_unit ?: "serving",
+                    servingWeightGrams = null,
+                    calories = common.nf_calories,
+                    protein = 0.0,
+                    fat = 0.0,
+                    carbs = 0.0,
+                ))
+            }
+            
+            // Add branded foods after (if space remains, up to 15 total)
+            instantResponse.branded.take(15 - results.size).forEach { branded ->
                 val displayName = if (!branded.brand_name.isNullOrBlank()) {
                     "${branded.food_name} (${branded.brand_name})"
                 } else {
@@ -55,20 +69,6 @@ class NutritionixClient(
                     servingWeightGrams = null, // Will be filled when we get detailed nutrition
                     calories = branded.nf_calories,
                     protein = 0.0, // Placeholder - will get real values from detailed search
-                    fat = 0.0,
-                    carbs = 0.0,
-                ))
-            }
-            
-            // Add common foods
-            instantResponse.common.take(5 - results.size).forEach { common ->
-                results.add(Ingredient(
-                    name = common.food_name,
-                    servingSize = common.serving_qty ?: 1.0,
-                    servingUnit = common.serving_unit ?: "serving",
-                    servingWeightGrams = null,
-                    calories = common.nf_calories,
-                    protein = 0.0,
                     fat = 0.0,
                     carbs = 0.0,
                 ))

@@ -230,11 +230,12 @@ class JournalCommand(
             return
         }
         
-        val servingsStr = prompt("How many servings of ${recipe.name}?") ?: return
-        val servings = servingsStr.toDoubleOrNull()
+        val servingsStr = prompt("How many servings of ${recipe.name}? (e.g., 1, 0.5, 150g, 5oz)") ?: return
         
+        // For recipes, we don't have ingredient weight data, so only accept numeric servings
+        val servings = servingsStr.toDoubleOrNull()
         if (servings == null || servings <= 0) {
-            echo("Invalid serving amount.")
+            echo("Invalid serving amount. For recipes, please use numeric servings (e.g., 1, 0.5, 2).")
             return
         }
         
@@ -309,17 +310,20 @@ class JournalCommand(
             selectedIngredient
         }
         
-        val servingsStr = prompt("How many servings of ${ingredient.name}?") ?: return
-        val servings = servingsStr.toDoubleOrNull()
+        val weightInfo = if (ingredient.servingWeightGrams != null) " (1 serving = ${ingredient.servingWeightGrams.toInt()}g)" else ""
+        val servingsStr = prompt("How many servings of ${ingredient.name}?$weightInfo (e.g., 1, 0.5, 150g, 5oz)") ?: return
         
-        if (servings == null || servings <= 0) {
-            echo("Invalid serving amount.")
+        val servingCalc = NutritionCalculator.parseServingInput(servingsStr, ingredient)
+        if (servingCalc == null) {
+            echo("Invalid serving amount. Use numeric servings (e.g., 1, 0.5) or weights (e.g., 150g, 5oz).")
             return
         }
         
+        val servings = servingCalc.servings
+        
         val journalEntry = NutritionCalculator.calculateIngredientNutrition(ingredient, servings)
         db.addJournalEntry(date, journalEntry)
-        echo("Added ${ingredient.name} (${servings} servings) to journal.")
+        echo("Added ${ingredient.name} (${servingCalc.displayText}) to journal.")
     }
     
     private fun showFinalSummary(date: LocalDate) {
@@ -504,13 +508,17 @@ class CreateRecipeCommand(
                 ingredient
             }
 
-            val servingsStr = prompt("How many servings of ${finalIngredient.name}?") ?: continue
-            val servings = servingsStr.toDoubleOrNull()
-
-            if (servings == null || servings <= 0) {
-                echo("Invalid serving amount.")
+            val weightInfo = if (finalIngredient.servingWeightGrams != null) " (1 serving = ${finalIngredient.servingWeightGrams.toInt()}g)" else ""
+            val servingsStr = prompt("How many servings of ${finalIngredient.name}?$weightInfo (e.g., 1, 0.5, 150g, 5oz)") ?: continue
+            
+            val servingCalc = NutritionCalculator.parseServingInput(servingsStr, finalIngredient)
+            if (servingCalc == null) {
+                echo("Invalid serving amount. Use numeric servings (e.g., 1, 0.5) or weights (e.g., 150g, 5oz).")
                 continue
             }
+
+            val servings = servingCalc.servings
+            echo("Using ${servingCalc.displayText} of ${finalIngredient.name}.")
 
             ingredients.add(RecipeIngredient(finalIngredient, servings))
         }

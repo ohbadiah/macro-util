@@ -109,4 +109,52 @@ object NutritionCalculator {
             carbs = recipeNutrition.totalCarbs * servings,
         )
     }
+
+    data class ServingCalculation(
+        val servings: Double,
+        val displayText: String
+    )
+
+    fun parseServingInput(input: String, ingredient: Ingredient): ServingCalculation? {
+        val trimmed = input.trim()
+        
+        // Try to parse weight-based inputs (e.g., "150g", "150 g", "5oz", "5 oz")
+        val weightRegex = Regex("""^(\d+(?:\.\d+)?)\s*(g|oz)$""", RegexOption.IGNORE_CASE)
+        val weightMatch = weightRegex.find(trimmed)
+        
+        if (weightMatch != null) {
+            val amount = weightMatch.groupValues[1].toDoubleOrNull() ?: return null
+            val unit = weightMatch.groupValues[2].lowercase()
+            
+            // Convert to grams if needed
+            val grams = when (unit) {
+                "g" -> amount
+                "oz" -> amount * 28.3495 // 1 oz = 28.3495 g
+                else -> return null
+            }
+            
+            // Calculate servings based on weight
+            if (ingredient.servingWeightGrams != null && ingredient.servingWeightGrams > 0) {
+                val servings = grams / ingredient.servingWeightGrams
+                val displayText = "%.1f servings (${grams.toInt()}g)".format(servings)
+                return ServingCalculation(servings, displayText)
+            } else {
+                // No weight information available for this ingredient
+                return null
+            }
+        }
+        
+        // Try to parse as regular serving number
+        val servings = trimmed.toDoubleOrNull()
+        if (servings != null && servings > 0) {
+            val displayText = if (servings == servings.toInt().toDouble()) {
+                "${servings.toInt()} servings"
+            } else {
+                "%.1f servings".format(servings)
+            }
+            return ServingCalculation(servings, displayText)
+        }
+        
+        return null
+    }
 }
