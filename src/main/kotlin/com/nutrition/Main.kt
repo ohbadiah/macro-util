@@ -5,6 +5,9 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.nutrition.api.NutritionixClient
 import com.nutrition.cli.CreateRecipeCommand
+import com.nutrition.cli.DeleteRecipeCommand
+import com.nutrition.cli.ListRecipesCommand
+import com.nutrition.cli.RenameRecipeCommand
 import com.nutrition.cli.ShowRecipeCommand
 import com.nutrition.database.DatabaseManager
 import java.io.FileInputStream
@@ -49,8 +52,11 @@ fun main(args: Array<String>) {
     try {
         NutritionApp()
             .subcommands(
+                ListRecipesCommand(db),
                 ShowRecipeCommand(db),
                 CreateRecipeCommand(db, nutritionix),
+                RenameRecipeCommand(db),
+                DeleteRecipeCommand(db),
             ).main(args)
     } finally {
         db.close()

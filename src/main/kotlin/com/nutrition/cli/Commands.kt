@@ -68,6 +68,25 @@ object RecipeDisplayUtil {
     }
 }
 
+class ListRecipesCommand(
+    private val db: DatabaseManager,
+) : CliktCommand(name = "list", help = "List all available recipes") {
+    override fun run() {
+        val recipes = db.getAllRecipes()
+        if (recipes.isEmpty()) {
+            echo("No recipes found.")
+            return
+        }
+
+        echo("Available recipes:")
+        recipes.forEach { recipe ->
+            val ingredientCount = recipe.ingredients.size
+            val totalCalories = NutritionCalculator.calculateRecipeNutrition(recipe).totalCalories
+            echo("  - ${recipe.name} ($ingredientCount ingredients, ${totalCalories.toInt()} calories)")
+        }
+    }
+}
+
 class ShowRecipeCommand(
     private val db: DatabaseManager,
 ) : CliktCommand(name = "show", help = "Display information for a recipe") {
@@ -81,6 +100,50 @@ class ShowRecipeCommand(
         }
 
         RecipeDisplayUtil.displayRecipe(recipe, this::echo)
+    }
+}
+
+class RenameRecipeCommand(
+    private val db: DatabaseManager,
+) : CliktCommand(name = "rename", help = "Rename an existing recipe") {
+    private val oldName by argument(help = "Current name of the recipe")
+    private val newName by argument(help = "New name for the recipe")
+
+    override fun run() {
+        if (db.getRecipe(oldName) == null) {
+            echo("Recipe '$oldName' not found.")
+            return
+        }
+
+        if (db.getRecipe(newName) != null) {
+            echo("Recipe '$newName' already exists.")
+            return
+        }
+
+        if (db.renameRecipe(oldName, newName)) {
+            echo("Recipe renamed from '$oldName' to '$newName'.")
+        } else {
+            echo("Failed to rename recipe.")
+        }
+    }
+}
+
+class DeleteRecipeCommand(
+    private val db: DatabaseManager,
+) : CliktCommand(name = "delete", help = "Delete an existing recipe") {
+    private val recipeName by argument(help = "Name of the recipe to delete")
+
+    override fun run() {
+        if (db.getRecipe(recipeName) == null) {
+            echo("Recipe '$recipeName' not found.")
+            return
+        }
+
+        if (db.deleteRecipe(recipeName)) {
+            echo("Recipe '$recipeName' deleted.")
+        } else {
+            echo("Failed to delete recipe.")
+        }
     }
 }
 

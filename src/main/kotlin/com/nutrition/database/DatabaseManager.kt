@@ -183,6 +183,49 @@ class DatabaseManager(
         }
     }
 
+    fun getAllRecipes(): List<Recipe> {
+        val sql = "SELECT * FROM recipes ORDER BY name"
+        connection.prepareStatement(sql).use { statement ->
+            val rs = statement.executeQuery()
+            val recipes = mutableListOf<Recipe>()
+            while (rs.next()) {
+                val recipeId = rs.getInt("id")
+                val recipeName = rs.getString("name")
+                val ingredients = getRecipeIngredients(recipeId)
+                recipes.add(Recipe(id = recipeId, name = recipeName, ingredients = ingredients))
+            }
+            return recipes
+        }
+    }
+
+    fun renameRecipe(oldName: String, newName: String): Boolean {
+        val sql = "UPDATE recipes SET name = ? WHERE LOWER(name) = LOWER(?)"
+        connection.prepareStatement(sql).use { statement ->
+            statement.setString(1, newName)
+            statement.setString(2, oldName)
+            return statement.executeUpdate() > 0
+        }
+    }
+
+    fun deleteRecipe(name: String): Boolean {
+        // First get the recipe ID
+        val recipe = getRecipe(name) ?: return false
+        
+        // Delete recipe ingredients first (foreign key constraint)
+        val deleteIngredientsSQL = "DELETE FROM recipe_ingredients WHERE recipe_id = ?"
+        connection.prepareStatement(deleteIngredientsSQL).use { statement ->
+            statement.setInt(1, recipe.id)
+            statement.executeUpdate()
+        }
+        
+        // Then delete the recipe
+        val deleteRecipeSQL = "DELETE FROM recipes WHERE id = ?"
+        connection.prepareStatement(deleteRecipeSQL).use { statement ->
+            statement.setInt(1, recipe.id)
+            return statement.executeUpdate() > 0
+        }
+    }
+
     fun close() {
         connection.close()
     }
