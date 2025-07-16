@@ -1,5 +1,7 @@
 package com.nutrition.models
 
+import java.time.LocalDate
+
 data class Ingredient(
     val id: Int = 0,
     val name: String,
@@ -67,6 +69,37 @@ data class NutritionixPhoto(
 )
 
 data class RecipeNutrition(
+    val totalCalories: Double,
+    val totalProtein: Double,
+    val totalFat: Double,
+    val totalCarbs: Double,
+    val proteinPercentage: Double,
+    val fatPercentage: Double,
+    val carbsPercentage: Double,
+)
+
+enum class EntryType {
+    RECIPE, INGREDIENT
+}
+
+data class JournalEntry(
+    val id: Int = 0,
+    val type: EntryType,
+    val name: String,
+    val servings: Double,
+    val calories: Double,
+    val protein: Double,
+    val fat: Double,
+    val carbs: Double,
+)
+
+data class FoodJournal(
+    val id: Int = 0,
+    val date: LocalDate,
+    val entries: List<JournalEntry> = emptyList(),
+)
+
+data class DayNutrition(
     val totalCalories: Double,
     val totalProtein: Double,
     val totalFat: Double,
