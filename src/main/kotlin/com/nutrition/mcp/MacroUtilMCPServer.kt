@@ -344,6 +344,7 @@ class MacroUtilMCPServer(
             }
 
             val journalEntry = JournalEntry(
+                type = EntryType.INGREDIENT,
                 name = ingredient.name,
                 servings = servings,
                 calories = ingredient.calories * servings,
@@ -530,8 +531,7 @@ class MacroUtilMCPServer(
                 )
             }
 
-            // Create recipe
-            val recipeId = db.createRecipe(recipeName)
+            // Create recipe ingredients list
             val recipeIngredients = mutableListOf<RecipeIngredient>()
 
             for (item in ingredientsList) {
@@ -549,12 +549,15 @@ class MacroUtilMCPServer(
                 if (ingredient == null) {
                     ingredient = nutritionix.searchFood(ingredientName)
                         ?: continue
-                    db.addIngredient(ingredient)
+                    ingredient = db.saveIngredient(ingredient)
                 }
 
-                db.addIngredientToRecipe(recipeId, ingredient.name, servings)
                 recipeIngredients.add(RecipeIngredient(ingredient, servings))
             }
+
+            // Save the complete recipe
+            val recipe = Recipe(name = recipeName, ingredients = recipeIngredients)
+            db.saveRecipe(recipe)
 
             CallToolResult(
                 content = listOf(
@@ -588,6 +591,10 @@ class MacroUtilMCPServer(
         val transport = StdioServerTransport()
         runBlocking {
             server.connect(transport)
+            // Keep the server running indefinitely
+            while (true) {
+                kotlinx.coroutines.delay(1000)
+            }
         }
     }
 }

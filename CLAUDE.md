@@ -180,7 +180,7 @@ The application now includes an MCP (Model Context Protocol) server that provide
 ./gradlew build
 
 # Start in MCP server mode
-./build/install/macro-util/bin/macro-util --mcp-server
+./build/install/macro-util/bin/macro-util mcp-server
 ```
 
 ### Available MCP Tools

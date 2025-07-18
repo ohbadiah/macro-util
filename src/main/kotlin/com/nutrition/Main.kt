@@ -3,48 +3,21 @@ package com.nutrition
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
-import com.github.ajalt.clikt.parameters.options.flag
-import com.github.ajalt.clikt.parameters.options.option
 import com.nutrition.api.NutritionixClient
 import com.nutrition.cli.CreateRecipeCommand
 import com.nutrition.cli.DeleteRecipeCommand
 import com.nutrition.cli.JournalCommand
 import com.nutrition.cli.ListRecipesCommand
+import com.nutrition.cli.MCPServerCommand
 import com.nutrition.cli.RenameRecipeCommand
 import com.nutrition.cli.ResetJournalCommand
 import com.nutrition.cli.ShowRecipeCommand
 import com.nutrition.database.DatabaseManager
-import com.nutrition.mcp.MacroUtilMCPServer
 import java.io.FileInputStream
 import java.util.Properties
 
 class NutritionApp : CliktCommand() {
-    private val mcpServer by option("--mcp-server", help = "Run as MCP server").flag(default = false)
-    
-    override fun run() {
-        if (mcpServer) {
-            println("Starting MCP server mode...")
-            val config = loadConfig()
-            val databasePath = config.getProperty("database.path", "nutrition.db")
-            val db = DatabaseManager(databasePath)
-            val appId = config.getProperty("nutritionix.app.id")
-            val appKey = config.getProperty("nutritionix.app.key")
-            
-            if (appId == null || appKey == null) {
-                println("Error: Nutritionix API credentials not found in config.properties")
-                return
-            }
-            
-            val nutritionix = NutritionixClient(appId, appKey)
-            val server = MacroUtilMCPServer(db, nutritionix)
-            
-            try {
-                server.start()
-            } finally {
-                db.close()
-            }
-        }
-    }
+    override fun run() = Unit
 }
 
 fun loadConfig(): Properties {
@@ -65,10 +38,8 @@ fun loadConfig(): Properties {
 
 fun main(args: Array<String>) {
     val config = loadConfig()
-
     val databasePath = config.getProperty("database.path", "nutrition.db")
     val db = DatabaseManager(databasePath)
-
     val appId = config.getProperty("nutritionix.app.id")
     val appKey = config.getProperty("nutritionix.app.key")
 
@@ -89,6 +60,7 @@ fun main(args: Array<String>) {
                 DeleteRecipeCommand(db),
                 JournalCommand(db, nutritionix),
                 ResetJournalCommand(db),
+                MCPServerCommand(db, nutritionix),
             ).main(args)
     } finally {
         db.close()

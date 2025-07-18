@@ -40,7 +40,7 @@ I was tracking my nutrition using a spreadsheet, manually looking up ingredient 
 ./gradlew build
 
 # Start MCP server for AI integration
-./build/install/macro-util/bin/macro-util --mcp-server
+./build/install/macro-util/bin/macro-util mcp-server
 ```
 
 ## Core Features
@@ -100,7 +100,7 @@ Interactive process that guides you through:
 
 ### MCP Server
 ```bash
-./build/install/macro-util/bin/macro-util --mcp-server  # Start MCP server
+./build/install/macro-util/bin/macro-util mcp-server  # Start MCP server
 ```
 
 ## Configuration
