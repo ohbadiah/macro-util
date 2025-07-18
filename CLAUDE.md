@@ -168,6 +168,51 @@ sqlite3 nutrition.db < create_database.sql
 - **Enhanced Search**: Improved ingredient lookup with USDA food prioritization
 - **Weight-Based Input**: Support for gram/ounce inputs with automatic conversion
 - **Daily Summaries**: Complete nutrition breakdowns for journal entries
+- **MCP Server**: Model Context Protocol server for AI integration
+
+## MCP Server Usage
+
+The application now includes an MCP (Model Context Protocol) server that provides AI-friendly access to all nutrition tracking functionality.
+
+### Starting the MCP Server
+```bash
+# Build the application
+./gradlew build
+
+# Start in MCP server mode
+./build/install/macro-util/bin/macro-util --mcp-server
+```
+
+### Available MCP Tools
+
+The MCP server exposes the following tools for AI integration:
+
+1. **list_recipes()** - List all available recipes
+2. **show_recipe(recipe_name)** - Display recipe nutrition information
+3. **create_recipe(name, ingredients)** - Create new recipe with ingredients
+4. **search_ingredient(query)** - Search Nutritionix API for ingredients
+5. **add_ingredient_to_journal(food_name, servings, date?)** - Add ingredient to journal
+6. **add_recipe_to_journal(recipe_name, servings, date?)** - Add recipe to journal
+7. **get_journal_summary(date?)** - Get nutrition summary for a date
+8. **reset_journal(date?)** - Clear journal entries for a date
+
+### Using with Claude
+
+Once the MCP server is running, you can use natural language to interact with your nutrition data:
+
+- "I had a banana blueberry protein shake and some oatmeal for breakfast"
+- "Show me yesterday's nutrition summary"
+- "Create a recipe for my morning smoothie with banana, protein powder, and almond milk"
+- "Search for chicken breast nutrition information"
+
+The MCP server provides structured, reliable access to all nutrition tracking functionality while maintaining the same business logic as the CLI.
+
+### Dependencies
+
+The MCP server uses:
+- `org.jetbrains.kotlinx:kotlinx-mcp-sdk:0.1.0` from JetBrains Space
+- Standard I/O transport for communication
+- JSON serialization for tool parameters and responses
 
 ## Future Enhancements (not implemented)
 - Web interface

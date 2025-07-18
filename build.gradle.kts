@@ -10,6 +10,7 @@ version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
+    maven("https://maven.pkg.jetbrains.space/public/p/kotlin-mcp-sdk/sdk")
 }
 
 dependencies {
@@ -18,6 +19,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("com.github.ajalt.clikt:clikt:4.2.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-mcp-sdk:0.1.0")
 }
 
 application {
