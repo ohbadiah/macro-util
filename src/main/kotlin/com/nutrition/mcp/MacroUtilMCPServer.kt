@@ -5,19 +5,17 @@ import com.nutrition.api.NutritionixClient
 import com.nutrition.core.NutritionCalculator
 import com.nutrition.database.DatabaseManager
 import com.nutrition.models.*
-import org.jetbrains.kotlinx.mcp.CallToolResult
-import org.jetbrains.kotlinx.mcp.Implementation
-import org.jetbrains.kotlinx.mcp.ServerCapabilities
-import org.jetbrains.kotlinx.mcp.TextContent
-import org.jetbrains.kotlinx.mcp.Tool
-import org.jetbrains.kotlinx.mcp.server.Server
-import org.jetbrains.kotlinx.mcp.server.ServerOptions
-import org.jetbrains.kotlinx.mcp.server.StdioServerTransport
+import io.modelcontextprotocol.kotlin.sdk.*
+import io.modelcontextprotocol.kotlin.sdk.server.Server
+import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
+import io.modelcontextprotocol.kotlin.sdk.server.StdioServerTransport
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
-import kotlinx.serialization.json.putJsonObject
+import kotlinx.io.asSink
+import kotlinx.io.asSource
+import kotlinx.io.buffered
+import kotlinx.serialization.json.*
+import org.slf4j.LoggerFactory
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 
@@ -27,6 +25,7 @@ class MacroUtilMCPServer(
 ) {
     private val gson = Gson()
     private val server: Server
+    private val logger = LoggerFactory.getLogger(MacroUtilMCPServer::class.java)
 
     init {
         server = Server(
@@ -63,10 +62,11 @@ class MacroUtilMCPServer(
                         put("type", "string")
                         put("description", "Name of the recipe")
                     }
-                }
+                },
+                required = listOf("recipe_name")
             )
         ) { request ->
-            handleShowRecipe(request.arguments ?: emptyMap())
+            handleShowRecipe(request.arguments)
         }
 
         server.addTool(
@@ -95,10 +95,11 @@ class MacroUtilMCPServer(
                             }
                         }
                     }
-                }
+                },
+                required = listOf("name", "ingredients")
             )
         ) { request ->
-            handleCreateRecipe(request.arguments ?: emptyMap())
+            handleCreateRecipe(request.arguments)
         }
 
         server.addTool(
@@ -110,10 +111,11 @@ class MacroUtilMCPServer(
                         put("type", "string")
                         put("description", "Search query for ingredient")
                     }
-                }
+                },
+                required = listOf("query")
             )
         ) { request ->
-            handleSearchIngredient(request.arguments ?: emptyMap())
+            handleSearchIngredient(request.arguments)
         }
 
         server.addTool(
@@ -133,10 +135,11 @@ class MacroUtilMCPServer(
                         put("type", "string")
                         put("description", "Date in YYYY-MM-DD format (optional, defaults to today)")
                     }
-                }
+                },
+                required = listOf("food_name", "servings")
             )
         ) { request ->
-            handleAddIngredientToJournal(request.arguments ?: emptyMap())
+            handleAddIngredientToJournal(request.arguments)
         }
 
         server.addTool(
@@ -156,10 +159,11 @@ class MacroUtilMCPServer(
                         put("type", "string")
                         put("description", "Date in YYYY-MM-DD format (optional, defaults to today)")
                     }
-                }
+                },
+                required = listOf("recipe_name", "servings")
             )
         ) { request ->
-            handleAddRecipeToJournal(request.arguments ?: emptyMap())
+            handleAddRecipeToJournal(request.arguments)
         }
 
         server.addTool(
@@ -174,7 +178,7 @@ class MacroUtilMCPServer(
                 }
             )
         ) { request ->
-            handleGetJournalSummary(request.arguments ?: emptyMap())
+            handleGetJournalSummary(request.arguments)
         }
 
         server.addTool(
@@ -189,7 +193,7 @@ class MacroUtilMCPServer(
                 }
             )
         ) { request ->
-            handleResetJournal(request.arguments ?: emptyMap())
+            handleResetJournal(request.arguments)
         }
     }
 
@@ -220,9 +224,9 @@ class MacroUtilMCPServer(
         }
     }
 
-    private fun handleShowRecipe(arguments: Map<String, Any>): CallToolResult {
+    private fun handleShowRecipe(arguments: Map<String, kotlinx.serialization.json.JsonElement>): CallToolResult {
         return try {
-            val recipeName = arguments["recipe_name"] as? String
+            val recipeName = arguments["recipe_name"]?.jsonPrimitive?.content
                 ?: return CallToolResult(
                     content = listOf(
                         TextContent("Missing recipe_name parameter")
@@ -274,9 +278,9 @@ class MacroUtilMCPServer(
         }
     }
 
-    private fun handleSearchIngredient(arguments: Map<String, Any>): CallToolResult {
+    private fun handleSearchIngredient(arguments: Map<String, kotlinx.serialization.json.JsonElement>): CallToolResult {
         return try {
-            val query = arguments["query"] as? String
+            val query = arguments["query"]?.jsonPrimitive?.content
                 ?: return CallToolResult(
                     content = listOf(
                         TextContent("Missing query parameter")
@@ -310,9 +314,9 @@ class MacroUtilMCPServer(
         }
     }
 
-    private fun handleAddIngredientToJournal(arguments: Map<String, Any>): CallToolResult {
+    private fun handleAddIngredientToJournal(arguments: Map<String, kotlinx.serialization.json.JsonElement>): CallToolResult {
         return try {
-            val foodName = arguments["food_name"] as? String
+            val foodName = arguments["food_name"]?.jsonPrimitive?.content
                 ?: return CallToolResult(
                     content = listOf(
                         TextContent("Missing food_name parameter")
@@ -320,7 +324,7 @@ class MacroUtilMCPServer(
                     isError = true
                 )
 
-            val servings = (arguments["servings"] as? Number)?.toDouble()
+            val servings = arguments["servings"]?.jsonPrimitive?.doubleOrNull
                 ?: return CallToolResult(
                     content = listOf(
                         TextContent("Missing or invalid servings parameter")
@@ -328,7 +332,7 @@ class MacroUtilMCPServer(
                     isError = true
                 )
 
-            val date = parseDate(arguments["date"] as? String)
+            val date = parseDate(arguments["date"]?.jsonPrimitive?.content)
 
             // Try to find existing ingredient first
             var ingredient = db.getIngredient(foodName)
@@ -370,9 +374,9 @@ class MacroUtilMCPServer(
         }
     }
 
-    private fun handleAddRecipeToJournal(arguments: Map<String, Any>): CallToolResult {
+    private fun handleAddRecipeToJournal(arguments: Map<String, kotlinx.serialization.json.JsonElement>): CallToolResult {
         return try {
-            val recipeName = arguments["recipe_name"] as? String
+            val recipeName = arguments["recipe_name"]?.jsonPrimitive?.content
                 ?: return CallToolResult(
                     content = listOf(
                         TextContent("Missing recipe_name parameter")
@@ -380,7 +384,7 @@ class MacroUtilMCPServer(
                     isError = true
                 )
 
-            val servings = (arguments["servings"] as? Number)?.toDouble()
+            val servings = arguments["servings"]?.jsonPrimitive?.doubleOrNull
                 ?: return CallToolResult(
                     content = listOf(
                         TextContent("Missing or invalid servings parameter")
@@ -388,7 +392,7 @@ class MacroUtilMCPServer(
                     isError = true
                 )
 
-            val date = parseDate(arguments["date"] as? String)
+            val date = parseDate(arguments["date"]?.jsonPrimitive?.content)
 
             val recipe = db.getRecipe(recipeName)
                 ?: return CallToolResult(
@@ -416,9 +420,9 @@ class MacroUtilMCPServer(
         }
     }
 
-    private fun handleGetJournalSummary(arguments: Map<String, Any>): CallToolResult {
+    private fun handleGetJournalSummary(arguments: Map<String, kotlinx.serialization.json.JsonElement>): CallToolResult {
         return try {
-            val date = parseDate(arguments["date"] as? String)
+            val date = parseDate(arguments["date"]?.jsonPrimitive?.content)
             val journal = db.getJournalByDate(date)
 
             if (journal == null || journal.entries.isEmpty()) {
@@ -474,9 +478,9 @@ class MacroUtilMCPServer(
         }
     }
 
-    private fun handleResetJournal(arguments: Map<String, Any>): CallToolResult {
+    private fun handleResetJournal(arguments: Map<String, kotlinx.serialization.json.JsonElement>): CallToolResult {
         return try {
-            val date = parseDate(arguments["date"] as? String)
+            val date = parseDate(arguments["date"]?.jsonPrimitive?.content)
             val success = db.resetJournal(date)
 
             if (success) {
@@ -503,9 +507,9 @@ class MacroUtilMCPServer(
         }
     }
 
-    private fun handleCreateRecipe(arguments: Map<String, Any>): CallToolResult {
+    private fun handleCreateRecipe(arguments: Map<String, kotlinx.serialization.json.JsonElement>): CallToolResult {
         return try {
-            val recipeName = arguments["name"] as? String
+            val recipeName = arguments["name"]?.jsonPrimitive?.content
                 ?: return CallToolResult(
                     content = listOf(
                         TextContent("Missing name parameter")
@@ -513,13 +517,16 @@ class MacroUtilMCPServer(
                     isError = true
                 )
 
-            val ingredientsList = arguments["ingredients"] as? List<*>
-                ?: return CallToolResult(
-                    content = listOf(
-                        TextContent("Missing ingredients parameter")
-                    ),
-                    isError = true
-                )
+            val ingredientsList = arguments["ingredients"]?.let { element ->
+                if (element is kotlinx.serialization.json.JsonArray) {
+                    element.map { it as kotlinx.serialization.json.JsonObject }
+                } else null
+            } ?: return CallToolResult(
+                content = listOf(
+                    TextContent("Missing or invalid ingredients parameter")
+                ),
+                isError = true
+            )
 
             // Check if recipe already exists
             if (db.getRecipe(recipeName) != null) {
@@ -535,20 +542,13 @@ class MacroUtilMCPServer(
             val recipeIngredients = mutableListOf<RecipeIngredient>()
 
             for (item in ingredientsList) {
-                val ingredientMap = item as? Map<*, *>
-                    ?: continue
-
-                val ingredientName = ingredientMap["name"] as? String
-                    ?: continue
-
-                val servings = (ingredientMap["servings"] as? Number)?.toDouble()
-                    ?: continue
+                val ingredientName = item["name"]?.jsonPrimitive?.content ?: continue
+                val servings = item["servings"]?.jsonPrimitive?.doubleOrNull ?: continue
 
                 // Find or create ingredient
                 var ingredient = db.getIngredient(ingredientName)
                 if (ingredient == null) {
-                    ingredient = nutritionix.searchFood(ingredientName)
-                        ?: continue
+                    ingredient = nutritionix.searchFood(ingredientName) ?: continue
                     ingredient = db.saveIngredient(ingredient)
                 }
 
@@ -588,13 +588,21 @@ class MacroUtilMCPServer(
     }
 
     fun start() {
-        val transport = StdioServerTransport()
+        val pid = ProcessHandle.current().pid()
+        logger.info("MCP server starting with PID: $pid")
+        
+        val transport = StdioServerTransport(
+            inputStream = System.`in`.asSource().buffered(),
+            outputStream = System.out.asSink().buffered()
+        )
+        
         runBlocking {
             server.connect(transport)
-            // Keep the server running indefinitely
-            while (true) {
-                kotlinx.coroutines.delay(1000)
+            val done = Job()
+            server.onClose {
+                done.complete()
             }
+            done.join()
         }
     }
 }
