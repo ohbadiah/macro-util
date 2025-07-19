@@ -71,12 +71,16 @@ class MacroUtilMCPServer(
 
         server.addTool(
             name = "create_recipe",
-            description = "Create a new recipe with ingredients",
+            description = "Create a new recipe with ingredients and serving count",
             inputSchema = Tool.Input(
                 properties = buildJsonObject {
                     putJsonObject("name") {
                         put("type", "string")
                         put("description", "Name of the recipe")
+                    }
+                    putJsonObject("servings") {
+                        put("type", "number")
+                        put("description", "Number of servings this recipe makes")
                     }
                     putJsonObject("ingredients") {
                         put("type", "array")
@@ -96,7 +100,7 @@ class MacroUtilMCPServer(
                         }
                     }
                 },
-                required = listOf("name", "ingredients")
+                required = listOf("name", "servings", "ingredients")
             )
         ) { request ->
             handleCreateRecipe(request.arguments)
@@ -195,6 +199,50 @@ class MacroUtilMCPServer(
         ) { request ->
             handleResetJournal(request.arguments)
         }
+        
+        server.addTool(
+            name = "create_custom_ingredient",
+            description = "Create a custom ingredient with manual nutrition data",
+            inputSchema = Tool.Input(
+                properties = buildJsonObject {
+                    putJsonObject("name") {
+                        put("type", "string")
+                        put("description", "Name of the ingredient")
+                    }
+                    putJsonObject("serving_size") {
+                        put("type", "number")
+                        put("description", "Serving size (e.g., 1, 0.5)")
+                    }
+                    putJsonObject("serving_unit") {
+                        put("type", "string")
+                        put("description", "Serving unit (e.g., cup, gram, piece)")
+                    }
+                    putJsonObject("serving_weight_grams") {
+                        put("type", "number")
+                        put("description", "Weight of one serving in grams (optional)")
+                    }
+                    putJsonObject("calories") {
+                        put("type", "number")
+                        put("description", "Calories per serving")
+                    }
+                    putJsonObject("protein") {
+                        put("type", "number")
+                        put("description", "Protein per serving in grams")
+                    }
+                    putJsonObject("fat") {
+                        put("type", "number")
+                        put("description", "Fat per serving in grams")
+                    }
+                    putJsonObject("carbs") {
+                        put("type", "number")
+                        put("description", "Carbs per serving in grams")
+                    }
+                },
+                required = listOf("name", "serving_size", "serving_unit", "calories", "protein", "fat", "carbs")
+            )
+        ) { request ->
+            handleCreateCustomIngredient(request.arguments)
+        }
     }
 
     private fun handleListRecipes(): CallToolResult {
@@ -204,6 +252,7 @@ class MacroUtilMCPServer(
                 val nutrition = NutritionCalculator.calculateRecipeNutrition(recipe)
                 mapOf(
                     "name" to recipe.name,
+                    "servings" to recipe.servings,
                     "ingredients" to recipe.ingredients.size,
                     "calories" to nutrition.totalCalories.toInt()
                 )
@@ -245,6 +294,7 @@ class MacroUtilMCPServer(
             val nutrition = NutritionCalculator.calculateRecipeNutrition(recipe)
             val result = mapOf(
                 "name" to recipe.name,
+                "servings" to recipe.servings,
                 "ingredients" to recipe.ingredients.map { ri ->
                     mapOf(
                         "name" to ri.ingredient.name,
@@ -516,6 +566,14 @@ class MacroUtilMCPServer(
                     ),
                     isError = true
                 )
+                
+            val servings = arguments["servings"]?.jsonPrimitive?.doubleOrNull
+                ?: return CallToolResult(
+                    content = listOf(
+                        TextContent("Missing or invalid servings parameter")
+                    ),
+                    isError = true
+                )
 
             val ingredientsList = arguments["ingredients"]?.let { element ->
                 if (element is kotlinx.serialization.json.JsonArray) {
@@ -556,12 +614,12 @@ class MacroUtilMCPServer(
             }
 
             // Save the complete recipe
-            val recipe = Recipe(name = recipeName, ingredients = recipeIngredients)
+            val recipe = Recipe(name = recipeName, servings = servings, ingredients = recipeIngredients)
             db.saveRecipe(recipe)
 
             CallToolResult(
                 content = listOf(
-                    TextContent("Created recipe '$recipeName' with ${recipeIngredients.size} ingredients")
+                    TextContent("Created recipe '$recipeName' with ${recipeIngredients.size} ingredients (${servings} servings)")
                 )
             )
         } catch (e: Exception) {
@@ -603,6 +661,94 @@ class MacroUtilMCPServer(
                 done.complete()
             }
             done.join()
+        }
+    }
+    
+    private fun handleCreateCustomIngredient(arguments: Map<String, kotlinx.serialization.json.JsonElement>): CallToolResult {
+        return try {
+            val name = arguments["name"]?.jsonPrimitive?.content
+                ?: return CallToolResult(
+                    content = listOf(
+                        TextContent("Missing name parameter")
+                    ),
+                    isError = true
+                )
+            
+            val servingSize = arguments["serving_size"]?.jsonPrimitive?.doubleOrNull
+                ?: return CallToolResult(
+                    content = listOf(
+                        TextContent("Missing or invalid serving_size parameter")
+                    ),
+                    isError = true
+                )
+            
+            val servingUnit = arguments["serving_unit"]?.jsonPrimitive?.content
+                ?: return CallToolResult(
+                    content = listOf(
+                        TextContent("Missing serving_unit parameter")
+                    ),
+                    isError = true
+                )
+            
+            val servingWeightGrams = arguments["serving_weight_grams"]?.jsonPrimitive?.doubleOrNull
+            
+            val calories = arguments["calories"]?.jsonPrimitive?.doubleOrNull
+                ?: return CallToolResult(
+                    content = listOf(
+                        TextContent("Missing or invalid calories parameter")
+                    ),
+                    isError = true
+                )
+            
+            val protein = arguments["protein"]?.jsonPrimitive?.doubleOrNull
+                ?: return CallToolResult(
+                    content = listOf(
+                        TextContent("Missing or invalid protein parameter")
+                    ),
+                    isError = true
+                )
+            
+            val fat = arguments["fat"]?.jsonPrimitive?.doubleOrNull
+                ?: return CallToolResult(
+                    content = listOf(
+                        TextContent("Missing or invalid fat parameter")
+                    ),
+                    isError = true
+                )
+            
+            val carbs = arguments["carbs"]?.jsonPrimitive?.doubleOrNull
+                ?: return CallToolResult(
+                    content = listOf(
+                        TextContent("Missing or invalid carbs parameter")
+                    ),
+                    isError = true
+                )
+            
+            val ingredient = Ingredient(
+                name = name,
+                servingSize = servingSize,
+                servingUnit = servingUnit,
+                servingWeightGrams = servingWeightGrams,
+                calories = calories,
+                protein = protein,
+                fat = fat,
+                carbs = carbs
+            )
+            
+            val savedIngredient = db.saveIngredient(ingredient)
+            
+            CallToolResult(
+                content = listOf(
+                    TextContent("Created custom ingredient '${savedIngredient.name}' with ${savedIngredient.calories} calories per ${savedIngredient.servingSize} ${savedIngredient.servingUnit}")
+                )
+            )
+        } catch (e: Exception) {
+            CallToolResult(
+                content = listOf(
+                    TextContent("Error creating custom ingredient: ${e.message}")
+                ),
+                isError = true
+            )
         }
     }
 }

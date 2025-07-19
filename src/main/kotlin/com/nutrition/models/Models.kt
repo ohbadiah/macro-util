@@ -17,6 +17,7 @@ data class Ingredient(
 data class Recipe(
     val id: Int = 0,
     val name: String,
+    val servings: Double,
     val ingredients: List<RecipeIngredient> = emptyList(),
 )
 

@@ -4,6 +4,7 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.prompt
 import com.nutrition.api.NutritionixClient
+import com.nutrition.cli.CustomIngredientUtil
 import com.nutrition.core.NutritionCalculator
 import com.nutrition.database.DatabaseManager
 import com.nutrition.models.*
@@ -12,7 +13,7 @@ import java.time.format.DateTimeParseException
 
 object RecipeDisplayUtil {
     fun displayRecipe(recipe: Recipe, echo: (String) -> Unit) {
-        echo("\n=== Recipe: ${recipe.name} ===")
+        echo("\n=== Recipe: ${recipe.name} (${recipe.servings} servings) ===")
         echo("\nIngredients:")
 
         recipe.ingredients.forEach { ri ->
@@ -42,7 +43,7 @@ object RecipeDisplayUtil {
 
         val nutrition = NutritionCalculator.calculateRecipeNutrition(recipe)
 
-        echo("\n=== Total Nutrition ===")
+        echo("\n=== Total Nutrition (entire recipe) ===")
         echo(String.format("Calories: %.1f", nutrition.totalCalories))
         echo(
             String.format(
@@ -82,7 +83,7 @@ class ListRecipesCommand(
         recipes.forEach { recipe ->
             val ingredientCount = recipe.ingredients.size
             val totalCalories = NutritionCalculator.calculateRecipeNutrition(recipe).totalCalories
-            echo("  - ${recipe.name} ($ingredientCount ingredients, ${totalCalories.toInt()} calories)")
+            echo("  - ${recipe.name} ($ingredientCount ingredients, ${recipe.servings} servings, ${totalCalories.toInt()} calories total)")
         }
     }
 }
@@ -275,9 +276,10 @@ class JournalCommand(
                         echo("  ${index + 1}. ${result.name} (${result.servingSize} ${result.servingUnit}$weightInfo)$calorieInfo")
                     }
                     echo("  ${searchResults.size + 1}. None of these - try different search")
+                    echo("  ${searchResults.size + 2}. Create custom ingredient")
 
-                    val choice = prompt("Select option (1-${searchResults.size + 1})")?.toIntOrNull()
-                    if (choice == null || choice < 1 || choice > searchResults.size + 1) {
+                    val choice = prompt("Select option (1-${searchResults.size + 2})")?.toIntOrNull()
+                    if (choice == null || choice < 1 || choice > searchResults.size + 2) {
                         echo("Invalid selection.")
                         continue
                     }
@@ -286,16 +288,27 @@ class JournalCommand(
                         echo("Try entering a different ingredient name.")
                         return
                     }
-
-                    val selectedResult = searchResults[choice - 1]
-                    echo("Getting detailed nutrition info for: ${selectedResult.name}")
                     
-                    selectedIngredient = if (selectedResult.protein == 0.0 && selectedResult.fat == 0.0 && selectedResult.carbs == 0.0) {
-                        val detailedNutrition = nutritionix.searchFood(selectedResult.name)
-                        detailedNutrition?.copy(name = selectedResult.name) ?: selectedResult
+                    if (choice == searchResults.size + 2) {
+                        val customIngredient = CustomIngredientUtil.createCustomIngredient(this::echo, this::prompt)
+                        if (customIngredient != null) {
+                            selectedIngredient = customIngredient
+                        } else {
+                            echo("Custom ingredient creation cancelled. Try again.")
+                            continue
+                        }
                     } else {
-                        selectedResult
+                        val selectedResult = searchResults[choice - 1]
+                        echo("Getting detailed nutrition info for: ${selectedResult.name}")
+                        
+                        selectedIngredient = if (selectedResult.protein == 0.0 && selectedResult.fat == 0.0 && selectedResult.carbs == 0.0) {
+                            val detailedNutrition = nutritionix.searchFood(selectedResult.name)
+                            detailedNutrition?.copy(name = selectedResult.name) ?: selectedResult
+                        } else {
+                            selectedResult
+                        }
                     }
+
                 }
                 selectedIngredient
             }
@@ -447,9 +460,10 @@ class CreateRecipeCommand(
                             echo("  ${index + 1}. ${result.name} (${result.servingSize} ${result.servingUnit}$weightInfo)$calorieInfo")
                         }
                         echo("  ${searchResults.size + 1}. None of these - try different search")
+                        echo("  ${searchResults.size + 2}. Create custom ingredient")
 
-                        val choice = prompt("Select option (1-${searchResults.size + 1})")?.toIntOrNull()
-                        if (choice == null || choice < 1 || choice > searchResults.size + 1) {
+                        val choice = prompt("Select option (1-${searchResults.size + 2})")?.toIntOrNull()
+                        if (choice == null || choice < 1 || choice > searchResults.size + 2) {
                             echo("Invalid selection.")
                             continue
                         }
@@ -459,22 +473,34 @@ class CreateRecipeCommand(
                             echo("Try entering a different ingredient name.")
                             return@run null
                         }
-
-                        val selectedResult = searchResults[choice - 1]
-                        echo("Getting detailed nutrition info for: ${selectedResult.name}")
                         
-                        // Get full nutrition info
-                        selectedIngredient = if (selectedResult.protein == 0.0 && selectedResult.fat == 0.0 && selectedResult.carbs == 0.0) {
-                            val detailedNutrition = nutritionix.searchFood(selectedResult.name)
-                            if (detailedNutrition != null) {
-                                // Preserve the branded name from selection, use detailed nutrition data
-                                detailedNutrition.copy(name = selectedResult.name)
+                        if (choice == searchResults.size + 2) {
+                            // User wants to create custom ingredient
+                            val customIngredient = CustomIngredientUtil.createCustomIngredient(this@CreateRecipeCommand::echo, this@CreateRecipeCommand::prompt)
+                            if (customIngredient != null) {
+                                selectedIngredient = customIngredient
+                            } else {
+                                echo("Custom ingredient creation cancelled. Try again.")
+                                continue
+                            }
+                        } else {
+                            val selectedResult = searchResults[choice - 1]
+                            echo("Getting detailed nutrition info for: ${selectedResult.name}")
+                            
+                            // Get full nutrition info
+                            selectedIngredient = if (selectedResult.protein == 0.0 && selectedResult.fat == 0.0 && selectedResult.carbs == 0.0) {
+                                val detailedNutrition = nutritionix.searchFood(selectedResult.name)
+                                if (detailedNutrition != null) {
+                                    // Preserve the branded name from selection, use detailed nutrition data
+                                    detailedNutrition.copy(name = selectedResult.name)
+                                } else {
+                                    selectedResult
+                                }
                             } else {
                                 selectedResult
                             }
-                        } else {
-                            selectedResult
                         }
+
                     }
                     selectedIngredient
                 }
@@ -528,7 +554,13 @@ class CreateRecipeCommand(
             return
         }
 
-        val recipe = Recipe(name = recipeName, ingredients = ingredients)
+        val servings = prompt("How many servings does this recipe make?", default = "1")?.toDoubleOrNull() ?: 1.0
+        if (servings <= 0) {
+            echo("Invalid serving count. Using 1 serving.")
+        }
+        val finalServings = if (servings <= 0) 1.0 else servings
+        
+        val recipe = Recipe(name = recipeName, servings = finalServings, ingredients = ingredients)
         val savedRecipe = db.saveRecipe(recipe)
 
         RecipeDisplayUtil.displayRecipe(savedRecipe, this::echo)

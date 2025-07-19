@@ -30,7 +30,8 @@ class DatabaseManager(
 
             CREATE TABLE IF NOT EXISTS recipes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT UNIQUE NOT NULL
+                name TEXT UNIQUE NOT NULL,
+                servings REAL NOT NULL DEFAULT 1
             );
 
             CREATE TABLE IF NOT EXISTS recipe_ingredients (
@@ -129,9 +130,10 @@ class DatabaseManager(
     }
 
     fun saveRecipe(recipe: Recipe): Recipe {
-        val sql = "INSERT INTO recipes (name) VALUES (?)"
+        val sql = "INSERT INTO recipes (name, servings) VALUES (?, ?)"
         connection.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS).use { statement ->
             statement.setString(1, recipe.name)
+            statement.setDouble(2, recipe.servings)
             statement.executeUpdate()
 
             val generatedKeys = statement.generatedKeys
@@ -168,8 +170,9 @@ class DatabaseManager(
             return if (rs.next()) {
                 val recipeId = rs.getInt("id")
                 val recipeName = rs.getString("name")
+                val servings = rs.getDouble("servings")
                 val ingredients = getRecipeIngredients(recipeId)
-                Recipe(id = recipeId, name = recipeName, ingredients = ingredients)
+                Recipe(id = recipeId, name = recipeName, servings = servings, ingredients = ingredients)
             } else {
                 null
             }
@@ -214,8 +217,9 @@ class DatabaseManager(
             while (rs.next()) {
                 val recipeId = rs.getInt("id")
                 val recipeName = rs.getString("name")
+                val servings = rs.getDouble("servings")
                 val ingredients = getRecipeIngredients(recipeId)
-                recipes.add(Recipe(id = recipeId, name = recipeName, ingredients = ingredients))
+                recipes.add(Recipe(id = recipeId, name = recipeName, servings = servings, ingredients = ingredients))
             }
             return recipes
         }

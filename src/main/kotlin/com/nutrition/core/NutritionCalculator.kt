@@ -41,6 +41,19 @@ object NutritionCalculator {
             carbsPercentage = carbsPercentage,
         )
     }
+    
+    fun calculateRecipeNutritionPerServing(recipe: Recipe): RecipeNutrition {
+        val totalNutrition = calculateRecipeNutrition(recipe)
+        return RecipeNutrition(
+            totalCalories = totalNutrition.totalCalories / recipe.servings,
+            totalProtein = totalNutrition.totalProtein / recipe.servings,
+            totalFat = totalNutrition.totalFat / recipe.servings,
+            totalCarbs = totalNutrition.totalCarbs / recipe.servings,
+            proteinPercentage = totalNutrition.proteinPercentage,
+            fatPercentage = totalNutrition.fatPercentage,
+            carbsPercentage = totalNutrition.carbsPercentage,
+        )
+    }
 
     private fun calculateMultiplier(recipeIngredient: RecipeIngredient): Double {
         val ingredient = recipeIngredient.ingredient
@@ -99,14 +112,20 @@ object NutritionCalculator {
 
     fun calculateRecipeNutritionForJournal(recipe: Recipe, servings: Double): JournalEntry {
         val recipeNutrition = calculateRecipeNutrition(recipe)
+        // Calculate per-serving nutrition by dividing by recipe servings
+        val perServingCalories = recipeNutrition.totalCalories / recipe.servings
+        val perServingProtein = recipeNutrition.totalProtein / recipe.servings
+        val perServingFat = recipeNutrition.totalFat / recipe.servings
+        val perServingCarbs = recipeNutrition.totalCarbs / recipe.servings
+        
         return JournalEntry(
             type = EntryType.RECIPE,
             name = recipe.name,
             servings = servings,
-            calories = recipeNutrition.totalCalories * servings,
-            protein = recipeNutrition.totalProtein * servings,
-            fat = recipeNutrition.totalFat * servings,
-            carbs = recipeNutrition.totalCarbs * servings,
+            calories = perServingCalories * servings,
+            protein = perServingProtein * servings,
+            fat = perServingFat * servings,
+            carbs = perServingCarbs * servings,
         )
     }
 
