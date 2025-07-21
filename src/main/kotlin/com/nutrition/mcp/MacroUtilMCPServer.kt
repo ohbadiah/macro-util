@@ -401,10 +401,10 @@ class MacroUtilMCPServer(
                 type = EntryType.INGREDIENT,
                 name = ingredient.name,
                 servings = servings,
-                calories = ingredient.calories * servings,
-                protein = ingredient.protein * servings,
-                fat = ingredient.fat * servings,
-                carbs = ingredient.carbs * servings
+                calories = 0.0, // Calculated by database join
+                protein = 0.0,  // Calculated by database join
+                fat = 0.0,      // Calculated by database join
+                carbs = 0.0     // Calculated by database join
             )
 
             db.addJournalEntry(date, journalEntry)
@@ -452,7 +452,15 @@ class MacroUtilMCPServer(
                     isError = true
                 )
 
-            val journalEntry = NutritionCalculator.calculateRecipeNutritionForJournal(recipe, servings)
+            val journalEntry = JournalEntry(
+                type = EntryType.RECIPE,
+                name = recipe.name,
+                servings = servings,
+                calories = 0.0, // Calculated by database join
+                protein = 0.0,  // Calculated by database join
+                fat = 0.0,      // Calculated by database join
+                carbs = 0.0     // Calculated by database join
+            )
             db.addJournalEntry(date, journalEntry)
 
             CallToolResult(

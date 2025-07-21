@@ -240,7 +240,15 @@ class JournalCommand(
             return
         }
         
-        val journalEntry = NutritionCalculator.calculateRecipeNutritionForJournal(recipe, servings)
+        val journalEntry = JournalEntry(
+            type = EntryType.RECIPE,
+            name = recipe.name,
+            servings = servings,
+            calories = 0.0, // Calculated by database join
+            protein = 0.0,  // Calculated by database join
+            fat = 0.0,      // Calculated by database join
+            carbs = 0.0     // Calculated by database join
+        )
         db.addJournalEntry(date, journalEntry)
         echo("Added ${recipe.name} (${servings} servings) to journal.")
     }
@@ -334,7 +342,15 @@ class JournalCommand(
         
         val servings = servingCalc.servings
         
-        val journalEntry = NutritionCalculator.calculateIngredientNutrition(ingredient, servings)
+        val journalEntry = JournalEntry(
+            type = EntryType.INGREDIENT,
+            name = ingredient.name,
+            servings = servings,
+            calories = 0.0, // Calculated by database join
+            protein = 0.0,  // Calculated by database join
+            fat = 0.0,      // Calculated by database join
+            carbs = 0.0     // Calculated by database join
+        )
         db.addJournalEntry(date, journalEntry)
         echo("Added ${ingredient.name} (${servingCalc.displayText}) to journal.")
     }

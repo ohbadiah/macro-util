@@ -51,18 +51,14 @@ class DatabaseManager(
             CREATE TABLE IF NOT EXISTS journal_entries (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 journal_id INTEGER NOT NULL,
-                entry_type TEXT NOT NULL,
+                entry_type TEXT NOT NULL CHECK (entry_type IN ('RECIPE', 'INGREDIENT')),
                 recipe_id INTEGER,
                 ingredient_id INTEGER,
                 servings REAL NOT NULL,
-                name TEXT NOT NULL,
-                calories REAL NOT NULL,
-                protein REAL NOT NULL,
-                fat REAL NOT NULL,
-                carbs REAL NOT NULL,
                 FOREIGN KEY (journal_id) REFERENCES food_journals(id),
                 FOREIGN KEY (recipe_id) REFERENCES recipes(id),
-                FOREIGN KEY (ingredient_id) REFERENCES ingredients(id)
+                FOREIGN KEY (ingredient_id) REFERENCES ingredients(id),
+                CHECK ((recipe_id IS NOT NULL AND ingredient_id IS NULL) OR (recipe_id IS NULL AND ingredient_id IS NOT NULL))
             );
         """
 
@@ -291,28 +287,33 @@ class DatabaseManager(
     private fun saveJournalEntry(journalId: Int, entry: JournalEntry) {
         val sql = """
             INSERT INTO journal_entries 
-            (journal_id, entry_type, recipe_id, ingredient_id, servings, name, calories, protein, fat, carbs)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (journal_id, entry_type, recipe_id, ingredient_id, servings)
+            VALUES (?, ?, ?, ?, ?)
         """
         connection.prepareStatement(sql).use { statement ->
             statement.setInt(1, journalId)
             statement.setString(2, entry.type.name)
             
-            // Set recipe_id or ingredient_id based on type (for future reference)
+            // Set recipe_id or ingredient_id based on type and look up by name
             if (entry.type == EntryType.RECIPE) {
-                statement.setNull(3, java.sql.Types.INTEGER)
-                statement.setNull(4, java.sql.Types.INTEGER)
+                val recipe = getRecipe(entry.name)
+                if (recipe != null) {
+                    statement.setInt(3, recipe.id)
+                    statement.setNull(4, java.sql.Types.INTEGER)
+                } else {
+                    throw IllegalArgumentException("Recipe not found: ${entry.name}")
+                }
             } else {
-                statement.setNull(3, java.sql.Types.INTEGER)
-                statement.setNull(4, java.sql.Types.INTEGER)
+                val ingredient = getIngredient(entry.name)
+                if (ingredient != null) {
+                    statement.setNull(3, java.sql.Types.INTEGER)
+                    statement.setInt(4, ingredient.id)
+                } else {
+                    throw IllegalArgumentException("Ingredient not found: ${entry.name}")
+                }
             }
             
             statement.setDouble(5, entry.servings)
-            statement.setString(6, entry.name)
-            statement.setDouble(7, entry.calories)
-            statement.setDouble(8, entry.protein)
-            statement.setDouble(9, entry.fat)
-            statement.setDouble(10, entry.carbs)
             statement.executeUpdate()
         }
     }
@@ -334,10 +335,48 @@ class DatabaseManager(
     
     private fun getJournalEntries(journalId: Int): List<JournalEntry> {
         val sql = """
-            SELECT id, entry_type, servings, name, calories, protein, fat, carbs
-            FROM journal_entries 
-            WHERE journal_id = ?
-            ORDER BY id
+            SELECT 
+                je.id,
+                je.entry_type,
+                je.servings,
+                COALESCE(r.name, i.name) as name,
+                CASE 
+                    WHEN je.recipe_id IS NOT NULL THEN 
+                        (SELECT SUM(ri_inner.servings * i_inner.calories) / r.servings * je.servings
+                         FROM recipe_ingredients ri_inner 
+                         JOIN ingredients i_inner ON ri_inner.ingredient_id = i_inner.id 
+                         WHERE ri_inner.recipe_id = r.id)
+                    ELSE i.calories * je.servings
+                END as calories,
+                CASE 
+                    WHEN je.recipe_id IS NOT NULL THEN 
+                        (SELECT SUM(ri_inner.servings * i_inner.protein) / r.servings * je.servings
+                         FROM recipe_ingredients ri_inner 
+                         JOIN ingredients i_inner ON ri_inner.ingredient_id = i_inner.id 
+                         WHERE ri_inner.recipe_id = r.id)
+                    ELSE i.protein * je.servings
+                END as protein,
+                CASE 
+                    WHEN je.recipe_id IS NOT NULL THEN 
+                        (SELECT SUM(ri_inner.servings * i_inner.fat) / r.servings * je.servings
+                         FROM recipe_ingredients ri_inner 
+                         JOIN ingredients i_inner ON ri_inner.ingredient_id = i_inner.id 
+                         WHERE ri_inner.recipe_id = r.id)
+                    ELSE i.fat * je.servings
+                END as fat,
+                CASE 
+                    WHEN je.recipe_id IS NOT NULL THEN 
+                        (SELECT SUM(ri_inner.servings * i_inner.carbs) / r.servings * je.servings
+                         FROM recipe_ingredients ri_inner 
+                         JOIN ingredients i_inner ON ri_inner.ingredient_id = i_inner.id 
+                         WHERE ri_inner.recipe_id = r.id)
+                    ELSE i.carbs * je.servings
+                END as carbs
+            FROM journal_entries je
+            LEFT JOIN recipes r ON je.recipe_id = r.id
+            LEFT JOIN ingredients i ON je.ingredient_id = i.id
+            WHERE je.journal_id = ?
+            ORDER BY je.id
         """
         connection.prepareStatement(sql).use { statement ->
             statement.setInt(1, journalId)
