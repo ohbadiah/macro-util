@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -exu
+set -xu
 
 rsync -u nutrition.db nmdc:
 rsync -u nmdc:nutrition.db .
