@@ -1,8 +1,8 @@
 package com.nutrition.cli
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.arguments.argument
-import com.github.ajalt.clikt.parameters.options.prompt
 import com.nutrition.api.NutritionixClient
 import com.nutrition.cli.CustomIngredientUtil
 import com.nutrition.core.NutritionCalculator
@@ -169,7 +169,7 @@ class JournalCommand(
     
     private fun getJournalDate(): LocalDate {
         while (true) {
-            val dateInput = prompt("Enter date (today/yesterday/YYYY-MM-DD)", default = "today")?.lowercase() ?: "today"
+            val dateInput = terminal.prompt("Enter date (today/yesterday/YYYY-MM-DD)", default = "today")?.lowercase() ?: "today"
             
             try {
                 return when (dateInput) {
@@ -203,7 +203,7 @@ class JournalCommand(
         echo("\n=== Add Food Entries ===")
         
         while (true) {
-            val action = prompt("\nAdd (r)ecipe, (i)ngredient, or (d)one?")?.lowercase()
+            val action = terminal.prompt("\nAdd (r)ecipe, (i)ngredient, or (d)one?")?.lowercase()
             
             when (action) {
                 "r", "recipe" -> addRecipeEntry(date)
@@ -218,7 +218,7 @@ class JournalCommand(
     }
     
     private fun addRecipeEntry(date: LocalDate) {
-        val recipeName = prompt("Recipe name") ?: return
+        val recipeName = terminal.prompt("Recipe name") ?: return
         
         var recipe = db.getRecipe(recipeName)
         if (recipe == null) {
@@ -231,7 +231,7 @@ class JournalCommand(
             return
         }
         
-        val servingsStr = prompt("How many servings of ${recipe.name}? (e.g., 1, 0.5, 150g, 5oz)") ?: return
+        val servingsStr = terminal.prompt("How many servings of ${recipe.name}? (e.g., 1, 0.5, 150g, 5oz)") ?: return
         
         // For recipes, we don't have ingredient weight data, so only accept numeric servings
         val servings = servingsStr.toDoubleOrNull()
@@ -254,7 +254,7 @@ class JournalCommand(
     }
     
     private fun addIngredientEntry(date: LocalDate) {
-        val ingredientName = prompt("Ingredient name") ?: return
+        val ingredientName = terminal.prompt("Ingredient name") ?: return
         
         val ingredient = db.getIngredient(ingredientName) ?: run {
             echo("Ingredient not found in database. Searching Nutritionix...")
@@ -286,7 +286,7 @@ class JournalCommand(
                     echo("  ${searchResults.size + 1}. None of these - try different search")
                     echo("  ${searchResults.size + 2}. Create custom ingredient")
 
-                    val choice = prompt("Select option (1-${searchResults.size + 2})")?.toIntOrNull()
+                    val choice = terminal.prompt("Select option (1-${searchResults.size + 2})")?.toIntOrNull()
                     if (choice == null || choice < 1 || choice > searchResults.size + 2) {
                         echo("Invalid selection.")
                         continue
@@ -298,7 +298,7 @@ class JournalCommand(
                     }
                     
                     if (choice == searchResults.size + 2) {
-                        val customIngredient = CustomIngredientUtil.createCustomIngredient(this::echo, this::prompt)
+                        val customIngredient = CustomIngredientUtil.createCustomIngredient(this::echo) { text, default -> terminal.prompt(text, default) }
                         if (customIngredient != null) {
                             selectedIngredient = customIngredient
                         } else {
@@ -323,7 +323,7 @@ class JournalCommand(
             
             // Ask if user wants to save, customize, or skip
             val finalIngredient = run {
-                val choice = prompt("Save this ingredient to database? \u001b[1m(y)\u001b[0mes/\u001b[1m(n)\u001b[0mo/\u001b[1m(c)\u001b[0mustomize", default = "y")
+                val choice = terminal.prompt("Save this ingredient to database? \u001b[1m(y)\u001b[0mes/\u001b[1m(n)\u001b[0mo/\u001b[1m(c)\u001b[0mustomize", default = "y")
                 when (choice?.lowercase()) {
                     "y", "yes" -> {
                         db.saveIngredient(selectedIngredient)
@@ -331,10 +331,10 @@ class JournalCommand(
                         selectedIngredient
                     }
                     "c", "customize" -> {
-                        val customizedIngredient = CustomIngredientUtil.customizeExistingIngredientStreamlined(selectedIngredient, this::echo, this::prompt)
+                        val customizedIngredient = CustomIngredientUtil.customizeExistingIngredientStreamlined(selectedIngredient, this::echo) { text, default -> terminal.prompt(text, default) }
                         if (customizedIngredient != null) {
                             // Ask if user wants to save the customized version to database
-                            val saveCustom = prompt("Save this customized ingredient to database? (y/n)", default = "y")
+                            val saveCustom = terminal.prompt("Save this customized ingredient to database? (y/n)", default = "y")
                             if (saveCustom?.lowercase() == "y") {
                                 db.saveIngredient(customizedIngredient)
                                 echo("Saved customized ingredient to database.")
@@ -359,7 +359,7 @@ class JournalCommand(
         }
         
         val weightInfo = if (ingredient.servingWeightGrams != null) " (1 serving = ${ingredient.servingWeightGrams.toInt()}g)" else ""
-        val servingsStr = prompt("How many servings of ${ingredient.name}?$weightInfo (e.g., 1, 0.5, 150g, 5oz)") ?: return
+        val servingsStr = terminal.prompt("How many servings of ${ingredient.name}?$weightInfo (e.g., 1, 0.5, 150g, 5oz)") ?: return
         
         val servingCalc = NutritionCalculator.parseServingInput(servingsStr, ingredient)
         if (servingCalc == null) {
@@ -435,7 +435,7 @@ class ResetJournalCommand(
         echo(String.format("  Protein: %.1fg, Fat: %.1fg, Carbs: %.1fg", nutrition.totalProtein, nutrition.totalFat, nutrition.totalCarbs))
 
         // Confirm deletion
-        val confirm = prompt("\nAre you sure you want to reset this journal? (yes/no)", default = "no")
+        val confirm = terminal.prompt("\nAre you sure you want to reset this journal? (yes/no)", default = "no")
         if (confirm?.lowercase() != "yes") {
             echo("Reset cancelled.")
             return
@@ -455,7 +455,7 @@ class CreateRecipeCommand(
     private val nutritionix: NutritionixClient,
 ) : CliktCommand(name = "create", help = "Create a new recipe") {
     override fun run() {
-        val recipeName = prompt("Recipe name")!!
+        val recipeName = terminal.prompt("Recipe name")!!
 
         if (db.getRecipe(recipeName) != null) {
             echo("Recipe '$recipeName' already exists.")
@@ -465,7 +465,7 @@ class CreateRecipeCommand(
         val ingredients = mutableListOf<RecipeIngredient>()
 
         while (true) {
-            val ingredientName = prompt("\nIngredient name (or 'done' to finish)") ?: break
+            val ingredientName = terminal.prompt("\nIngredient name (or 'done' to finish)") ?: break
             if (ingredientName.lowercase() == "done") break
 
             val ingredient = db.getIngredient(ingredientName) ?: run {
@@ -505,7 +505,7 @@ class CreateRecipeCommand(
                         echo("  ${searchResults.size + 1}. None of these - try different search")
                         echo("  ${searchResults.size + 2}. Create custom ingredient")
 
-                        val choice = prompt("Select option (1-${searchResults.size + 2})")?.toIntOrNull()
+                        val choice = terminal.prompt("Select option (1-${searchResults.size + 2})")?.toIntOrNull()
                         if (choice == null || choice < 1 || choice > searchResults.size + 2) {
                             echo("Invalid selection.")
                             continue
@@ -519,7 +519,7 @@ class CreateRecipeCommand(
                         
                         if (choice == searchResults.size + 2) {
                             // User wants to create custom ingredient
-                            val customIngredient = CustomIngredientUtil.createCustomIngredient(this@CreateRecipeCommand::echo, this@CreateRecipeCommand::prompt)
+                            val customIngredient = CustomIngredientUtil.createCustomIngredient(this@CreateRecipeCommand::echo) { text, default -> terminal.prompt(text, default) }
                             if (customIngredient != null) {
                                 selectedIngredient = customIngredient
                             } else {
@@ -562,7 +562,7 @@ class CreateRecipeCommand(
                     "  Calories: ${ingredient.calories}, Protein: ${ingredient.protein}g, Fat: ${ingredient.fat}g, Carbs: ${ingredient.carbs}g",
                 )
 
-                val save = prompt("Save this ingredient to database? (y/n)", default = "y")
+                val save = terminal.prompt("Save this ingredient to database? (y/n)", default = "y")
                 if (save?.lowercase() == "y") {
                     val savedIngredient = db.saveIngredient(ingredient)
                     echo("Saved to database.")
@@ -578,7 +578,7 @@ class CreateRecipeCommand(
             }
 
             val weightInfo = if (finalIngredient.servingWeightGrams != null) " (1 serving = ${finalIngredient.servingWeightGrams.toInt()}g)" else ""
-            val servingsStr = prompt("How many servings of ${finalIngredient.name}?$weightInfo (e.g., 1, 0.5, 150g, 5oz)") ?: continue
+            val servingsStr = terminal.prompt("How many servings of ${finalIngredient.name}?$weightInfo (e.g., 1, 0.5, 150g, 5oz)") ?: continue
             
             val servingCalc = NutritionCalculator.parseServingInput(servingsStr, finalIngredient)
             if (servingCalc == null) {
@@ -597,7 +597,7 @@ class CreateRecipeCommand(
             return
         }
 
-        val servings = prompt("How many servings does this recipe make?", default = "1")?.toDoubleOrNull() ?: 1.0
+        val servings = terminal.prompt("How many servings does this recipe make?", default = "1")?.toDoubleOrNull() ?: 1.0
         if (servings <= 0) {
             echo("Invalid serving count. Using 1 serving.")
         }
