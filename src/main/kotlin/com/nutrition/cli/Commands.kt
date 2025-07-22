@@ -169,7 +169,7 @@ class JournalCommand(
     
     private fun getJournalDate(): LocalDate {
         while (true) {
-            val dateInput = prompt("Enter date (today/yesterday/YYYY-MM-DD)", default = "today")?.lowercase()
+            val dateInput = prompt("Enter date (today/yesterday/YYYY-MM-DD)", default = "today")?.lowercase() ?: "today"
             
             try {
                 return when (dateInput) {
@@ -321,14 +321,41 @@ class JournalCommand(
                 selectedIngredient
             }
             
-            // Ask if user wants to save to database
-            val save = prompt("Save this ingredient to database? (y/n)", default = "y")
-            if (save?.lowercase() == "y") {
-                db.saveIngredient(selectedIngredient)
-                echo("Saved to database.")
+            // Ask if user wants to save, customize, or skip
+            val finalIngredient = run {
+                val choice = prompt("Save this ingredient to database? \u001b[1m(y)\u001b[0mes/\u001b[1m(n)\u001b[0mo/\u001b[1m(c)\u001b[0mustomize", default = "y")
+                when (choice?.lowercase()) {
+                    "y", "yes" -> {
+                        db.saveIngredient(selectedIngredient)
+                        echo("Saved to database.")
+                        selectedIngredient
+                    }
+                    "c", "customize" -> {
+                        val customizedIngredient = CustomIngredientUtil.customizeExistingIngredientStreamlined(selectedIngredient, this::echo, this::prompt)
+                        if (customizedIngredient != null) {
+                            // Ask if user wants to save the customized version to database
+                            val saveCustom = prompt("Save this customized ingredient to database? (y/n)", default = "y")
+                            if (saveCustom?.lowercase() == "y") {
+                                db.saveIngredient(customizedIngredient)
+                                echo("Saved customized ingredient to database.")
+                                customizedIngredient
+                            } else {
+                                echo("Ingredient selection cancelled.")
+                                return
+                            }
+                        } else {
+                            echo("Customization cancelled.")
+                            return
+                        }
+                    }
+                    else -> {
+                        echo("Ingredient selection cancelled.")
+                        return
+                    }
+                }
             }
             
-            selectedIngredient
+            finalIngredient
         }
         
         val weightInfo = if (ingredient.servingWeightGrams != null) " (1 serving = ${ingredient.servingWeightGrams.toInt()}g)" else ""
